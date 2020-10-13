@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-
-class Tarefa {
-  String nome;
-
-  Tarefa(this.nome);
-}
+import 'package:primeiro_projeto/data_base/data_base.dart';
 
 class Home extends StatefulWidget {
   @override
@@ -15,17 +10,15 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   AnimationController _controller;
 
   TextEditingController textController;
-  List<Tarefa> tarefas = [
-    Tarefa("Limpar Casa"),
-    Tarefa("Lavar Carro"),
-    Tarefa("Lavar Louça")
-  ];
+
+  DataBase _db;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
     textController = TextEditingController();
+    _db = DataBase();
   }
 
   @override
@@ -71,10 +64,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                       color: Colors.white,
                       onPressed: () {
                         if (textController.text.isNotEmpty) {
-                          setState(() {
-                            tarefas.add(Tarefa(textController.text));
-                            textController.text = "";
-                          });
+                          _db.insereTarefa(Tarefa(nome: textController.text));
                         }
                       },
                     ),
@@ -82,44 +72,55 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                 )
               ]),
               Expanded(
-                child: ListView.builder(
-                    itemCount: tarefas.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return Dismissible(
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: EdgeInsets.only(right: 20.0),
-                          color: Colors.red,
-                          child: Icon(
-                            Icons.delete,
-                            color: Colors.white,
-                          ),
-                        ),
-                        key: ObjectKey(tarefas[index].nome),
-                        child: Card(
-                            child: ListTile(
-                          title: Text(tarefas[index].nome),
-                          trailing: Icon(Icons.keyboard_arrow_right),
-                        )),
-                        onDismissed: (direcao) {
-                          var tarefa = tarefas[index];
+                  child: StreamBuilder(
+                stream: _db.observaTarefas(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return ListView.builder(
+                        itemCount: snapshot.data.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          return Dismissible(
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: EdgeInsets.only(right: 20.0),
+                              color: Colors.red,
+                              child: Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                            key: ObjectKey(snapshot.data[index].nome),
+                            child: Card(
+                                child: ListTile(
+                              title: Text(snapshot.data[index].nome),
+                              trailing: Icon(Icons.keyboard_arrow_right),
+                            )),
+                            onDismissed: (direcao) {
+                              var tarefa = snapshot.data[index];
 
-                          setState(() {
-                            tarefas.removeAt(index);
-                          });
+                              _db.deletaTarefa(tarefa);
 
-                          Scaffold.of(context).showSnackBar(SnackBar(
-                              content: Text("Item deletado com sucesso"),
-                              action: SnackBarAction(
-                                  label: "Desfazer", onPressed: () {
-                                    setState(() {
-                                      tarefas.insert(index,tarefa );
-                                    });
-                                  })));
-                        },
-                      );
-                    }),
-              ),
+                              Scaffold.of(context).showSnackBar(SnackBar(
+                                  content: Text("Item deletado com sucesso"),
+                                  action: SnackBarAction(
+                                      label: "Desfazer",
+                                      onPressed: () {
+                                        _db.insereTarefa(tarefa);
+                                      })));
+                            },
+                          );
+                        });
+                  } else {
+                    return Center(
+                      child: SizedBox(
+                        child: CircularProgressIndicator(),
+                        height: 50.0,
+                        width: 50.0,
+                      ),
+                    );
+                  }
+                },
+              )),
             ],
           )),
     );
